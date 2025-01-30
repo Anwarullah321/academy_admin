@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Flutter MCQ App</title>
+  <script defer src="https://www.gstatic.com/firebasejs/9.1.2/firebase-app.js"></script>
+  <script defer src="https://www.gstatic.com/firebasejs/9.1.2/firebase-analytics.js"></script>
+
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+  <script defer>
+    // Import the functions you need from the SDKs you need
+    import { initializeApp } from "firebase/app";
+    import { getAnalytics } from "firebase/analytics";
+    // TODO: Add SDKs for Firebase products that you want to use
+    // https://firebase.google.com/docs/web/setup#available-libraries
+
+    // Your web app's Firebase configuration
+    // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+ const firebaseConfig = {
+  apiKey: "AIzaSyDUkF2QUEZh9F09ZZfyrMkbnyzwDJF53VA",
+  authDomain: "academy-app-realtimedatabase.firebaseapp.com",
+  projectId: "academy-app-realtimedatabase",
+  storageBucket: "academy-app-realtimedatabase.appspot.com",
+  messagingSenderId: "785375733186",
+  appId: "1:785375733186:web:f30a2b782077349e9c625b",
+  measurementId: "G-2KJ6ZJKJ87"
+};
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const analytics = getAnalytics(app);
+    </script>
+</head>
+<body>
+<script src="main.dart.js" type="application/javascript"></script>
+</body>
+</html>
