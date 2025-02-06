@@ -1,219 +1,117 @@
-import 'package:admin/chapterwise_test/chapter_detail_page.dart';
 import 'package:admin/constants/colors.dart';
 import 'package:admin/services/get_service.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../loginscreen.dart';
+import '../providers/AuthProvider.dart';
+import '../providers/ChapterProvider.dart';
 
-class SelectChapterPage extends StatefulWidget {
+class SelectChapterPage extends StatelessWidget {
   final String selectedClass;
   final String selectedSubject;
 
-  const SelectChapterPage({
-    Key? key,
-    required this.selectedClass,
-    required this.selectedSubject,
-  }) : super(key: key);
+  const SelectChapterPage({Key? key, required this.selectedClass, required this.selectedSubject}) : super(key: key);
 
   @override
-  _SelectChapterPageState createState() => _SelectChapterPageState();
-}
+  Widget build(BuildContext context) {
+    final chapterProvider = Provider.of<ChapterProvider>(context, listen: false);
+    chapterProvider.setSelectedClassAndSubject(selectedClass, selectedSubject);
+    chapterProvider.loadChapters();
 
-class _SelectChapterPageState extends State<SelectChapterPage> {
-  final GetService _getService = GetService();
-  List<String> _chapters = [];
-  Map<String, bool> _isHovered = {};
+    return Consumer<ChapterProvider>(
+      builder: (context, chapterProvider, child) {
+        return Scaffold(
+          appBar: AppBar(
+            backgroundColor: customYellow,
+            elevation: 0,
+            actions: [
+              TextButton.icon(
+                icon: Icon(Icons.exit_to_app),
+                label: Text('Logout'),
+                onPressed: () async {
 
-  @override
-  void initState() {
-    super.initState();
-    _loadChapters();
-  }
+                  Provider.of<AuthManager>(context, listen: false).logout(context);
 
-  Future<void> _loadChapters() async {
-    print("Loading chapters for class: ${widget.selectedClass}, subject: ${widget.selectedSubject}");
-    final stopwatch = Stopwatch()..start();
-
-    try {
-      final chapters = await _getService.getChapters(widget.selectedClass, widget.selectedSubject);
-      setState(() {
-        _chapters = chapters;
-        for (var chapter in _chapters) {
-          _isHovered[chapter] = false;
-        }
-      });
-      print("Chapters loaded: $_chapters");
-    } catch (e) {
-      print("Error loading chapters: $e");
-    } finally {
-      print("Chapters load time: ${stopwatch.elapsedMilliseconds} ms");
-      stopwatch.stop();
-    }
-  }
-
-  void _showQuestionTypeDialog(String chapter) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Select Type'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: customYellow,
-                  minimumSize: Size(double.infinity, 45),
-                ),
-                onPressed: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ChapterDetailPage(
-                        selectedClass: widget.selectedClass,
-                        selectedSubject: widget.selectedSubject,
-                        selectedChapter: chapter,
-                        initialIndex: 0,
-                      ),
-                    ),
-                  );
+                  context.go('/login');
                 },
-                child: Text(
-                  'Objective',
-                  style: TextStyle(color: Colors.black),
-                ),
-              ),
-              SizedBox(height: 16),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: customYellow,
-                  minimumSize: Size(double.infinity, 45),
-                ),
-                onPressed: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ChapterDetailPage(
-                        selectedClass: widget.selectedClass,
-                        selectedSubject: widget.selectedSubject,
-                        selectedChapter: chapter,
-                        initialIndex: 1,
-                      ),
-                    ),
-                  );
-                },
-                child: Text(
-                  'Subjective',
-                  style: TextStyle(color: Colors.black),
-                ),
               ),
             ],
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  selectedClass,
+                  style: const TextStyle(
+                    color: Colors.black87,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  selectedSubject,
+                  style: TextStyle(color: darkGrey, fontSize: 16, fontWeight: FontWeight.w700),
+                ),
+              ],
+            ),
+          ),
+          body: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: chapterProvider.isLoading
+                ? Center(child: CircularProgressIndicator())
+                : GridView.builder(
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 6,
+                crossAxisSpacing: 16.0,
+                mainAxisSpacing: 16.0,
+                childAspectRatio: 1,
+              ),
+              itemCount: chapterProvider.chapters.length,
+              itemBuilder: (context, index) {
+                String currentChapter = chapterProvider.chapters[index];
+                return _buildChapterCard(context, currentChapter, chapterProvider);
+              },
+            ),
           ),
         );
       },
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: customYellow,
-        elevation: 0,
-        actions: [
-          TextButton.icon(
-            icon: Icon(Icons.exit_to_app),
-            label: Text('Logout'),
-            onPressed: () {
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (context) => LoggedInScreen()),
-                    (Route<dynamic> route) => false,
-              );
-            },
-          ),
-        ],
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              widget.selectedClass,
-              style: const TextStyle(
-                color: Colors.black87,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+  Widget _buildChapterCard(BuildContext context, String chapter, ChapterProvider chapterProvider) {
+    return MouseRegion(
+      onEnter: (_) => chapterProvider.setHover(chapter, true),
+      onExit: (_) => chapterProvider.setHover(chapter, false),
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () => chapterProvider.showQuestionTypeDialog(context, chapter),
+        child: Transform.scale(
+          scale: chapterProvider.isHovered(chapter) ? 1.1 : 1.0,
+          child: Card(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12.0),
+            ),
+            elevation: 5.0,
+            child: AnimatedContainer(
+              duration: Duration(milliseconds: 200),
+              padding: EdgeInsets.all(16.0),
+              decoration: BoxDecoration(
+                color: customYellow,
+                borderRadius: BorderRadius.circular(12.0),
               ),
-            ),
-            Text(
-              widget.selectedSubject,
-              style: TextStyle(color: darkGrey, fontSize: 16, fontWeight: FontWeight.w700),
-            ),
-          ],
-        ),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: _chapters.isEmpty
-            ? Center(
-          child: CircularProgressIndicator(),
-        )
-            : GridView.builder(
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 6,
-            crossAxisSpacing: 16.0,
-            mainAxisSpacing: 16.0,
-            childAspectRatio: 1,
-          ),
-          itemCount: _chapters.length,
-          itemBuilder: (context, index) {
-            String currentChapter = _chapters[index];
-            bool isHovered = _isHovered[currentChapter] ?? false;
-            return MouseRegion(
-              cursor: SystemMouseCursors.click,
-              onEnter: (_) {
-                setState(() {
-                  _isHovered[currentChapter] = true;
-                });
-              },
-              onExit: (_) {
-                setState(() {
-                  _isHovered[currentChapter] = false;
-                });
-              },
-              child: GestureDetector(
-                onTap: () => _showQuestionTypeDialog(currentChapter),
-                child: Transform.scale(
-                  scale: isHovered ? 1.1 : 1.0,
-                  child: Card(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12.0),
-                    ),
-                    elevation: 5.0,
-                    child: AnimatedContainer(
-                      duration: Duration(milliseconds: 200),
-                      padding: EdgeInsets.all(16.0),
-                      decoration: BoxDecoration(
-                        color: customYellow,
-                        borderRadius: BorderRadius.circular(12.0),
-                      ),
-                      child: Center(
-                        child: Text(
-                          currentChapter,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 17.0,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black,
-                          ),
-                        ),
-                      ),
-                    ),
+              child: Center(
+                child: Text(
+                  chapter,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 17.0,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
                   ),
                 ),
               ),
-            );
-          },
+            ),
+          ),
         ),
       ),
     );

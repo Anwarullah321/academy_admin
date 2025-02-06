@@ -108,7 +108,6 @@ class DeleteService {
 
   Future<void> deleteEteaMCQsByYear(String subject, String chapter, int year) async {
     try {
-      // Construct the database reference to the chapterwise MCQs
       final mcqsRef = _database
           .child('etea_subjects')
           .child(subject)
@@ -116,27 +115,23 @@ class DeleteService {
           .child(chapter)
           .child('etea_mcqs');
 
-      // Fetch all MCQs from the specified chapter
       final snapshot = await mcqsRef.get();
 
       if (snapshot.exists) {
         final Map<dynamic, dynamic>? mcqsMap = snapshot.value as Map<dynamic, dynamic>?;
 
         if (mcqsMap != null) {
-          // Iterate over each MCQ entry and check if it belongs to the specified year
           for (final entry in mcqsMap.entries) {
             final key = entry.key;
             final data = entry.value;
 
             if (data != null && data['year'] == year) {
-              // Remove the MCQ entry from the database if it matches the specified year
               await mcqsRef.child(key).remove();
             }
           }
         }
       }
     } catch (e) {
-      // Error handling to catch and display any issues during the deletion process
       print('Error deleting MCQs by year: $e');
       throw Exception('Failed to delete MCQs for year $year');
     }

@@ -1,26 +1,30 @@
+import 'package:admin/providers/AuthProvider.dart';
 import 'package:admin/screens/view_screens/etea_view/etea_view_chapterwise.dart';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
 import '../constants/colors.dart';
 import '../loginscreen.dart';
+import '../mcq_provider.dart';
 
 
-class ChapterDetailPage extends StatefulWidget {
+class EteaChapterDetailPage extends StatefulWidget {
   final String selectedSubject;
   final String selectedChapter;
 
-  const ChapterDetailPage({
+  const EteaChapterDetailPage({
     Key? key,
     required this.selectedSubject,
     required this.selectedChapter,
   }) : super(key: key);
 
   @override
-  _ChapterDetailPageState createState() => _ChapterDetailPageState();
+  _EteaChapterDetailPageState createState() => _EteaChapterDetailPageState();
 }
 
-class _ChapterDetailPageState extends State<ChapterDetailPage> {
+class _EteaChapterDetailPageState extends State<EteaChapterDetailPage> {
 
 
   @override
@@ -33,12 +37,11 @@ class _ChapterDetailPageState extends State<ChapterDetailPage> {
           TextButton.icon(
             icon: Icon(Icons.exit_to_app),
             label: Text('Logout'),
-            onPressed: () {
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (context) => LoggedInScreen()),
-                    (Route<dynamic> route) => false,
-              );
+            onPressed: () async {
+
+              Provider.of<AuthManager>(context, listen: false).logout(context);
+
+              context.go('/login');
             },
           ),
         ],

@@ -4,11 +4,16 @@ import 'package:admin/constants/colors.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:html' as html;
 import 'package:encrypt/encrypt.dart' as encrypt;
+import 'package:provider/provider.dart';
 import '../loginscreen.dart';
 import '../main.dart';
+import '../mcq_provider.dart';
+import '../providers/AuthProvider.dart';
+import '../providers/ClassProvider.dart';
 import '../services/decryption_service.dart';
 import '../services/get_service.dart';
 
@@ -35,55 +40,32 @@ class _ExportClassesScreenState extends State<ExportClassesScreen> {
     '2nd Year'
   ];
 
+
   @override
   void initState() {
     super.initState();
-    _loadClasses();
-  }
-
-  Future<void> _loadClasses() async {
-    print("Loading classes...");
-    final stopwatch = Stopwatch()..start();
-    try {
-      final cls = await _getService.getClasses();
-      if (mounted) {
-        setState(() {
-          // Sort classes based on the predefined order
-          _classes = cls.where((classItem) => _classOrder.contains(classItem))
-              .toList()
-            ..sort((a, b) => _classOrder.indexOf(a).compareTo(_classOrder.indexOf(b)));
-        });
-        print("Ordered Classes loaded: $_classes");
-      }
-    } catch (e) {
-      print("Error loading classes: $e");
-    } finally {
-      print("Classes load time: ${stopwatch.elapsedMilliseconds} ms");
-      stopwatch.stop();
+    // Load classes only if they are not already loaded
+    final classProvider = Provider.of<ClassProvider>(context, listen: false);
+    if (classProvider.classes.isEmpty) {
+      classProvider.loadClasses();
     }
   }
+
 
   Widget _buildClassCard({
     required String className,
     required double cardWidth,
     required double cardHeight,
   }) {
+    final classProvider = Provider.of<ClassProvider>(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           MouseRegion(
-            onEnter: (_) {
-              setState(() {
-                _isHovered[className] = true;
-              });
-            },
-            onExit: (_) {
-              setState(() {
-                _isHovered[className] = false;
-              });
-            },
+            onEnter: (_) => classProvider.setHover(className, true),
+            onExit: (_) => classProvider.setHover(className, false),
             cursor: SystemMouseCursors.click,
             child: GestureDetector(
               onTap: () {
@@ -97,7 +79,7 @@ class _ExportClassesScreenState extends State<ExportClassesScreen> {
                 curve: Curves.easeOutCubic,
                 tween: Tween<double>(
                   begin: 1.0,
-                  end: _isHovered[className] == true ? 1.1 : 1.0,
+                  end: classProvider.isHovered(className) ? 1.1 : 1.0,
                 ),
                 builder: (context, double scale, child) {
                   return Transform.scale(
@@ -105,13 +87,12 @@ class _ExportClassesScreenState extends State<ExportClassesScreen> {
                     child: Container(
                       width: cardWidth,
                       height: cardHeight,
-
                       decoration: BoxDecoration(
                         color: customYellow,
                         borderRadius: BorderRadius.circular(16.0),
                         boxShadow: [
                           BoxShadow(
-                            color: _isHovered[className] == true
+                            color: classProvider.isHovered(className)
                                 ? Colors.black.withOpacity(0.3)
                                 : Colors.transparent,
                             offset: Offset(0, 8),
@@ -123,11 +104,7 @@ class _ExportClassesScreenState extends State<ExportClassesScreen> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(
-                            Icons.download,
-                            size: 24,
-                            color: Colors.black87,
-                          ),
+                          Icon(Icons.download, size: 24, color: Colors.black87),
                           SizedBox(height: 8),
                           Text(
                             'Download\n$className',
@@ -146,28 +123,6 @@ class _ExportClassesScreenState extends State<ExportClassesScreen> {
               ),
             ),
           ),
-          // SizedBox(height: 20),
-          // TweenAnimationBuilder(
-          //   duration: Duration(milliseconds: 200),
-          //   curve: Curves.easeOutCubic,
-          //   tween: Tween<double>(
-          //     begin: 1.0,
-          //     end: _isHovered[className] == true ? 1.1 : 1.0,
-          //   ),
-          //   builder: (context, double scale, child) {
-          //     return Transform.scale(
-          //       scale: scale,
-          //       child: Text(
-          //         className,
-          //         style: TextStyle(
-          //           fontSize: _isHovered[className] == true ? 17 : 17,
-          //           fontWeight: _isHovered[className] == true ? FontWeight.bold : FontWeight.w600,
-          //           color: Colors.black,
-          //         ),
-          //       ),
-          //     );
-          //   },
-          // ),
         ],
       ),
     );
@@ -175,9 +130,18 @@ class _ExportClassesScreenState extends State<ExportClassesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final classProvider = Provider.of<ClassProvider>(context);
+
     return Scaffold(
       appBar: AppBar(
-        title: Text('Select Class'),
+        title: Text(
+          'Select Class',
+          style: TextStyle(
+            color: Colors.black87,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         backgroundColor: customYellow,
         elevation: 0,
         actions: [
@@ -185,42 +149,63 @@ class _ExportClassesScreenState extends State<ExportClassesScreen> {
             icon: Icon(Icons.exit_to_app),
             label: Text('Logout'),
             onPressed: () {
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (context) => LoggedInScreen()),
-                    (Route<dynamic> route) => false,
-              );
+              Provider.of<AuthManager>(context, listen: false).logout(context);
+              context.go('/login');
             },
           ),
         ],
       ),
-      body: Center(
-        child: _classes.isEmpty
-            ? CircularProgressIndicator()
-            : LayoutBuilder(
-          builder: (context, constraints) {
-            final screenSize = MediaQuery.of(context).size;
-            double cardWidth = screenSize.width * 0.19;
-            double cardHeight = cardWidth;
+      body: Stack(
+        children: [
+          Center(
+            child: classProvider.isLoading
+                ? CircularProgressIndicator()
+                : LayoutBuilder(
+              builder: (context, constraints) {
+                final screenSize = MediaQuery.of(context).size;
+                double cardWidth = screenSize.width * 0.19;
+                double cardHeight = cardWidth;
 
-            return SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: _classes.map((className) {
-                  return _buildClassCard(
-                    className: className,
-                    cardWidth: cardWidth,
-                    cardHeight: cardHeight,
-                  );
-                }).toList(),
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: classProvider.classes.map((className) {
+                      return _buildClassCard(
+                        className: className,
+                        cardWidth: cardWidth,
+                        cardHeight: cardHeight,
+                      );
+                    }).toList(),
+                  ),
+                );
+              },
+            ),
+          ),
+          if (isExporting)
+            Container(
+              color: Colors.black54,
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(value: exportProgress / 100),
+                    SizedBox(height: 20),
+                    Text(
+                      'Downloading... ${exportProgress.toStringAsFixed(1)}%',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            );
-          },
-        ),
+            ),
+        ],
       ),
     );
   }
-
 
 
   Future<void> _exportData() async {
@@ -231,14 +216,16 @@ class _ExportClassesScreenState extends State<ExportClassesScreen> {
     });
 
     try {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Decrypting key, please wait...')),
-      );
+      // ScaffoldMessenger.of(context).showSnackBar(
+      //   SnackBar(content: Text('Decrypting key, please wait...')),
+      // );
 
-      final decryptedKey = KeyDecryptionService.getDecryptedKey();
+      final decryptedKey = DecrytionService.getDecryptedKey();
       if (decryptedKey == null) {
         throw Exception('Failed to decrypt the AES key');
       }
+      print("Decrypted RSA Private Key:\n$decryptedKey");
+
 
       Map<String, dynamic> exportData = {};
       if (selectedSubjects.isEmpty) {
@@ -270,12 +257,8 @@ class _ExportClassesScreenState extends State<ExportClassesScreen> {
 
           // Update progress
           processedItems++;
-          setState(() {
-            exportProgress = (processedItems / totalItems) * 100;
-          });
-
-          // Optional: Add a small delay to make progress visible
-          await Future.delayed(Duration(milliseconds: 100));
+          setState(() => exportProgress = (processedItems / totalItems) * 100);
+          await Future.delayed(Duration(milliseconds: 50));
         }
       }
 

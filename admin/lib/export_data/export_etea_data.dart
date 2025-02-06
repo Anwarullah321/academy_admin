@@ -4,10 +4,15 @@ import 'package:admin/constants/colors.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:provider/provider.dart';
 import 'dart:html' as html;
 import '../loginscreen.dart';
 import '../main.dart';
+import '../mcq_provider.dart';
+import '../providers/AuthProvider.dart';
+import '../providers/etea/EteaSubjectProvider.dart';
 import '../services/decryption_service.dart';
 import '../services/get_service.dart';
 import 'package:encrypt/encrypt.dart' as encrypt;
@@ -26,15 +31,13 @@ class _ExportEteaScreenState extends State<ExportEteaScreen> {
   @override
   void initState() {
     super.initState();
-    _loadEteaSubjects();
+    // Load subjects only if they are not already loaded
+    final subjectProvider = Provider.of<EteaSubjectProvider>(context, listen: false);
+    if (subjectProvider.subjects.isEmpty) {
+      subjectProvider.loadSubjects();
+    }
   }
 
-  Future<void> _loadEteaSubjects() async {
-    final subjects = await _getService.getEteaSubjects();
-    setState(() {
-      _eteaSubjects = subjects;
-    });
-  }
 
   String encryptData(String data, String decryptedKey) {
     try {
@@ -48,6 +51,8 @@ class _ExportEteaScreenState extends State<ExportEteaScreen> {
   }
 
   Future<void> _exportSpecificSubjects() async {
+    final subjectProvider = Provider.of<EteaSubjectProvider>(context, listen: false);
+
     final selectedSubjects = await showDialog<List<String>>(
       context: context,
       builder: (context) {
@@ -59,7 +64,7 @@ class _ExportEteaScreenState extends State<ExportEteaScreen> {
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  children: _eteaSubjects.map((subject) {
+                  children: subjectProvider.subjects.map((subject) {
                     return CheckboxListTile(
                       title: Text(subject),
                       value: selected.contains(subject),
@@ -93,80 +98,164 @@ class _ExportEteaScreenState extends State<ExportEteaScreen> {
     );
 
     if (selectedSubjects != null && selectedSubjects.isNotEmpty) {
-      setState(() {
-        isExporting = true;
-        exportProgress = 0.0;
-      });
-
-      try {
-        final decryptedKey = KeyDecryptionService.getDecryptedKey();
-        if (decryptedKey == null) throw Exception('Failed to decrypt the AES key');
-
-        Map<String, dynamic> eteaData = {'ETEA': {}};
-        String subjectsList = selectedSubjects.join('_');
-        String timestamp = DateTime.now().toString().replaceAll(':', '-').split('.')[0];
-        String fileName = 'ETEA_${subjectsList}_$timestamp.yaml';
-
-
-        int totalItems = 0;
-        for (var subject in selectedSubjects) {
-          final chapters = await _getService.getEteaChapters(subject);
-          totalItems += chapters.length;
-        }
-
-        int processedItems = 0;
-
-        for (String subject in selectedSubjects) {
-          final chapters = await _getService.getEteaChapters(subject);
-          eteaData['ETEA'][subject] = {};
-
-          for (String chapter in chapters) {
-            final mcqs = await _getService.getEteaChapterwiseMCQs(subject, chapter);
-            eteaData['ETEA'][subject][chapter] = {
-              'mcqs': mcqs.map((mcq) => mcq.toMap()).toList(),
-            };
-          }
-
-          processedItems++;
-          setState(() {
-            exportProgress = (processedItems / totalItems) * 100;
-          });
-
-          await Future.delayed(Duration(milliseconds: 100));
-        }
-
-        final yamlString = convertMapToYaml(eteaData);
-        final encryptedData = encryptData(yamlString, decryptedKey);
-
-        if (kIsWeb) {
-          final bytes = utf8.encode(encryptedData);
-          final blob = html.Blob([bytes]);
-          final url = html.Url.createObjectUrlFromBlob(blob);
-          final anchor = html.AnchorElement(href: url)
-            ..setAttribute("download", fileName)
-            ..click();
-          html.Url.revokeObjectUrl(url);
-        } else {
-          final directory = await getApplicationDocumentsDirectory();
-          final file = File('${directory.path}/$fileName');
-          await file.writeAsString(encryptedData);
-        }
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Selected subjects data Downloaded successfully.')),
-        );
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error Downloading subjects data: $e')),
-        );
-      } finally {
-        setState(() {
-          isExporting = false;
-          exportProgress = 0.0;
-        });
-      }
+      await _exportData(selectedSubjects);
     }
   }
+
+  Future<void> _exportData(List<String> selectedSubjects) async {
+    setState(() {
+      isExporting = true;
+      exportProgress = 0.0;
+    });
+
+    try {
+      final decryptedKey = DecrytionService.getDecryptedKey();
+      if (decryptedKey == null) throw Exception('Failed to decrypt the AES key');
+
+      Map<String, dynamic> eteaData = {'ETEA': {}};
+      String subjectsList = selectedSubjects.join('_');
+      String timestamp = DateTime.now().toString().replaceAll(':', '-').split('.')[0];
+      String fileName = 'ETEA_${subjectsList}_$timestamp.yaml';
+
+      int totalItems = 0;
+      for (var subject in selectedSubjects) {
+        final chapters = await _getService.getEteaChapters(subject);
+        totalItems += chapters.length;
+      }
+
+      int processedItems = 0;
+
+      for (String subject in selectedSubjects) {
+        final chapters = await _getService.getEteaChapters(subject);
+        eteaData['ETEA'][subject] = {};
+
+        for (String chapter in chapters) {
+          final mcqs = await _getService.getEteaChapterwiseMCQs(subject, chapter);
+          eteaData['ETEA'][subject][chapter] = {
+            'mcqs': mcqs.map((mcq) => mcq.toMap()).toList(),
+          };
+
+          processedItems++;
+          setState(() => exportProgress = (processedItems / totalItems) * 100);
+          await Future.delayed(Duration(milliseconds: 50));
+        }
+      }
+
+      final yamlString = convertMapToYaml(eteaData);
+      final encryptedData = encryptData(yamlString, decryptedKey);
+
+      _saveFile(fileName, encryptedData);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Selected subjects data Downloaded successfully.')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error Downloading subjects data: $e')),
+      );
+    } finally {
+      setState(() {
+        isExporting = false;
+        exportProgress = 0.0;
+      });
+    }
+  }
+
+  Future<void> _exportAllSubjects() async {
+    final subjectProvider = Provider.of<EteaSubjectProvider>(context, listen: false);
+    await _exportData(subjectProvider.subjects);
+  }
+
+  void _saveFile(String fileName, String encryptedData) {
+    if (kIsWeb) {
+      final bytes = utf8.encode(encryptedData);
+      final blob = html.Blob([bytes]);
+      final url = html.Url.createObjectUrlFromBlob(blob);
+      final anchor = html.AnchorElement(href: url)
+        ..setAttribute("download", fileName)
+        ..click();
+      html.Url.revokeObjectUrl(url);
+    } else {
+      getApplicationDocumentsDirectory().then((directory) {
+        final file = File('${directory.path}/$fileName');
+        file.writeAsString(encryptedData);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final subjectProvider = Provider.of<EteaSubjectProvider>(context);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          'Download ETEA Data',
+          style: TextStyle(
+            color: Colors.black87,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        backgroundColor: customYellow,
+        actions: [
+          TextButton.icon(
+            icon: Icon(Icons.exit_to_app),
+            label: Text('Logout'),
+            onPressed: () {
+              Provider.of<AuthManager>(context, listen: false).logout(context);
+              context.go('/login');
+            },
+          ),
+        ],
+      ),
+      body: Stack(
+        children: [
+          subjectProvider.isLoading
+              ? Center(child: CircularProgressIndicator())
+              : Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ElevatedButton(
+                  onPressed: _exportSpecificSubjects,
+                  child: Text('Download Specific Subjects'),
+                ),
+                SizedBox(height: 20),
+                ElevatedButton(
+                  onPressed: _exportAllSubjects,
+                  child: Text('Download All Subjects'),
+                ),
+              ],
+            ),
+          ),
+          if (isExporting)
+            Container(
+              color: Colors.black54,
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(value: exportProgress / 100),
+                    SizedBox(height: 20),
+                    Text(
+                      'Downloading... ${exportProgress.toStringAsFixed(1)}%',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+
 
   String convertMapToYaml(Map<String, dynamic> data) {
     String yamlString = '';
@@ -199,138 +288,5 @@ class _ExportEteaScreenState extends State<ExportEteaScreen> {
     return yamlString;
   }
 
-  Future<void> _exportAllSubjects() async {
-    setState(() {
-      isExporting = true;
-      exportProgress = 0.0;
-    });
 
-    try {
-      final decryptedKey = KeyDecryptionService.getDecryptedKey();
-      if (decryptedKey == null) throw Exception('Failed to decrypt the AES key');
-
-      Map<String, dynamic> eteaData = {'ETEA': {}};
-      String subjectsList = _eteaSubjects.join('_');
-      String timestamp = DateTime.now().toString().replaceAll(':', '-').split('.')[0];
-      String fileName = 'ETEA_${subjectsList}_$timestamp.yaml';
-
-      int totalItems = 0;
-      for (var subject in _eteaSubjects) {
-        final chapters = await _getService.getEteaChapters(subject);
-        totalItems += chapters.length;
-      }
-
-      int processedItems = 0;
-
-      for (String subject in _eteaSubjects) {
-        final chapters = await _getService.getEteaChapters(subject);
-        eteaData['ETEA'][subject] = {};
-
-        for (String chapter in chapters) {
-          final mcqs = await _getService.getEteaChapterwiseMCQs(subject, chapter);
-          eteaData['ETEA'][subject][chapter] = {
-            'mcqs': mcqs.map((mcq) => mcq.toMap()).toList(),
-          };
-        }
-
-        processedItems++;
-        setState(() {
-          exportProgress = (processedItems / totalItems) * 100;
-        });
-
-        await Future.delayed(Duration(milliseconds: 100));
-      }
-
-      final yamlString = convertMapToYaml(eteaData);
-      final encryptedData = encryptData(yamlString, decryptedKey);
-
-      if (kIsWeb) {
-        final bytes = utf8.encode(encryptedData);
-        final blob = html.Blob([bytes]);
-        final url = html.Url.createObjectUrlFromBlob(blob);
-        final anchor = html.AnchorElement(href: url)
-          ..setAttribute("download", fileName)
-          ..click();
-        html.Url.revokeObjectUrl(url);
-      } else {
-        final directory = await getApplicationDocumentsDirectory();
-        final file = File('${directory.path}/$fileName');
-        await file.writeAsString(encryptedData);
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('All subjects data Downloaded successfully.')),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error Downloading all subjects data: $e')),
-      );
-    } finally {
-      setState(() {
-        isExporting = false;
-        exportProgress = 0.0;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Download ETEA Data'),
-        backgroundColor: customYellow,
-        actions: [
-          TextButton.icon(
-            icon: Icon(Icons.exit_to_app),
-            label: Text('Logout'),
-            onPressed: () {
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (context) => LoggedInScreen()),
-                    (Route<dynamic> route) => false,
-              );
-            },
-          ),
-        ],
-      ),
-      body: Stack(
-        children: [
-          _eteaSubjects.isEmpty
-              ? Center(child: CircularProgressIndicator())
-              : Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ElevatedButton(
-                  onPressed: _exportSpecificSubjects,
-                  child: Text('Download Specific Subjects'),
-                ),
-                SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: _exportAllSubjects,
-                  child: Text('Download All Subjects'),
-                ),
-              ],
-            ),
-          ),
-          if (isExporting)
-            Container(
-              color: Colors.black54,
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 20),
-                    Text(
-                      'Downloading... ${exportProgress.toStringAsFixed(1)}%',
-                      style: TextStyle(color: Colors.white, fontSize: 18),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
 }

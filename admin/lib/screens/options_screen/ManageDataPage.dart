@@ -1,9 +1,13 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
 import '../../chapterwise_test/selectclasspage.dart';
 import '../../constants/colors.dart';
 import '../../loginscreen.dart';
+import '../../mcq_provider.dart';
+import '../../providers/AuthProvider.dart';
 import '../../widgets/option_image_card.dart';
 import 'etea_manage_options.dart';
 
@@ -17,19 +21,24 @@ class ManageDataPage extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text('Manage Data'),
+        title: Text('Manage Data',
+          style: const TextStyle(
+            color: Colors.black87,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         backgroundColor: customYellow,
         elevation: 0,
         actions: [
           TextButton.icon(
             icon: Icon(Icons.exit_to_app),
             label: Text('Logout'),
-            onPressed: () {
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (context) => LoggedInScreen()),
-                    (Route<dynamic> route) => false,
-              );
+            onPressed: () async {
+
+              Provider.of<AuthManager>(context, listen: false).logout(context);
+
+              context.go('/login');
             },
           ),
         ],
@@ -51,10 +60,7 @@ class ManageDataPage extends StatelessWidget {
                   image: 'assets/images/academicdata.png',
                   title: 'Academic Data',
                   subtitle: 'Edit or Delete Academic Data.',
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => SelectClassPage()),
-                  ),
+                  onTap: () => context.go( '/chapterwise_test'),
                 ),
               ),
               ),
@@ -67,10 +73,7 @@ class ManageDataPage extends StatelessWidget {
                     image: 'assets/images/eteadata.png',
                     title: 'ETEA Data',
                     subtitle: 'Edit or Delete ETEA Data.',
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => EteaManageOptionsDialog()),
-                    ),
+                    onTap: () => context.go('/etea/manage'),
                   ),
                 ),
               ),

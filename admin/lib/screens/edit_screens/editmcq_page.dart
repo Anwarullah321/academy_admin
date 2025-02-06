@@ -1,8 +1,13 @@
+import 'package:admin/providers/AuthProvider.dart';
 import 'package:admin/services/update_service.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../../constants/colors.dart';
 import '../../loginscreen.dart';
+import '../../mcq_provider.dart';
 import '../../models/mcq_model.dart';
+import '../../providers/MCQProvider.dart';
 
 class EditMCQPage extends StatefulWidget {
   final String cls;
@@ -14,7 +19,12 @@ class EditMCQPage extends StatefulWidget {
 
   @override
   _EditMCQPageState createState() => _EditMCQPageState();
+
 }
+
+
+enum SaveDiscardCancel { save, discard, cancel }
+
 
 class _EditMCQPageState extends State<EditMCQPage> {
   final UpdateService _updateService = UpdateService();
@@ -22,6 +32,7 @@ class _EditMCQPageState extends State<EditMCQPage> {
   late TextEditingController _questionController;
   late List<TextEditingController> _optionsController;
   late int _correctOption;
+
 
   @override
   void initState() {
@@ -33,188 +44,303 @@ class _EditMCQPageState extends State<EditMCQPage> {
     _correctOption = widget.mcq.correctOption;
   }
 
-  void _saveMCQ() async {
+  bool get hasUnsavedChanges {
+    if (_questionController.text != widget.mcq.question) return true;
+
+    for (int i = 0; i < _optionsController.length; i++) {
+      if (_optionsController[i].text != widget.mcq.options[i]) return true;
+    }
+
+    if (_correctOption != widget.mcq.correctOption) return true;
+
+    return false;
+  }
+
+  Future<bool> _saveMCQ() async {
     if (_formKey.currentState!.validate()) {
-      final updatedMCQ = MCQ(
-        id: widget.mcq.id,
-        question: _questionController.text,
-        options: _optionsController.map((controller) => controller.text).toList(),
-        correctOption: _correctOption,
-        year: DateTime.now().year,
-      );
-      await _updateService.updateChapterwiseMCQ(
-          widget.cls, widget.subject, widget.chapter, widget.mcq.id, updatedMCQ);
-      Navigator.pop(context);
+      try {
+        final updatedMCQ = MCQ(
+          id: widget.mcq.id,
+          question: _questionController.text,
+          options: _optionsController.map((c) => c.text).toList(),
+          correctOption: _correctOption,
+          year: DateTime.now().year,
+        );
+
+        await _updateService.updateChapterwiseMCQ(
+            widget.cls,
+            widget.subject,
+            widget.chapter,
+            widget.mcq.id,
+            updatedMCQ
+        );
+        return true;
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Save failed: $e'))
+        );
+        return false;
+      }
+    }
+    return false;
+  }
+
+  Future<SaveDiscardCancel?> _showSaveDiscardDialog() async {
+    return await showDialog<SaveDiscardCancel>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Unsaved Changes'),
+        content: Text('You have unsaved changes. Save before leaving?'),
+        actions: [
+          TextButton(
+            child: Text('Cancel'),
+            onPressed: () => context.pop(SaveDiscardCancel.cancel),
+          ),
+          TextButton(
+            child: Text('Discard'),
+            onPressed: () => context.pop( SaveDiscardCancel.discard),
+          ),
+          TextButton(
+            child: Text('Save'),
+            onPressed: () => context.pop( SaveDiscardCancel.save),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<bool> _handleExitConditions() async {
+    if (!hasUnsavedChanges) return true;
+
+    final choice = await _showSaveDiscardDialog();
+    switch (choice) {
+      case SaveDiscardCancel.save:
+        final saved = await _saveMCQ();
+        return saved;
+      case SaveDiscardCancel.discard:
+        return true;
+      case SaveDiscardCancel.cancel:
+      default:
+        return false;
     }
   }
 
+
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: customYellow,
-        elevation: 0,
-        actions: [
-      TextButton.icon(
-      icon: Icon(Icons.exit_to_app),
-      label: Text('Logout'),
-      onPressed: () {
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (context) => LoggedInScreen()),
-              (Route<dynamic> route) => false,
-        );
-      },
-    ),
-        ],
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              widget.cls,
-              style: const TextStyle(
-                color: Colors.black87,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+    return WillPopScope(
+      onWillPop: () async => true,
+      child: Consumer<MCQProvider>(
+        builder: (context, provider, child) {
+          final mcq = provider.selectedMCQ;
+
+          if (mcq == null) {
+            return Scaffold(
+              appBar: AppBar(title: Text('Edit MCQ')),
+              body: Center(child: Text('No MCQ selected!')),
+            );
+          }
+
+          return Scaffold(
+            appBar: AppBar(
+              backgroundColor: customYellow,
+              elevation: 0,
+              actions: [
+                TextButton.icon(
+                  icon: Icon(Icons.exit_to_app),
+                  label: Text('Logout'),
+                  onPressed: () async {
+
+                    Provider.of<AuthManager>(context, listen: false).logout(context);
+
+                    context.go('/login');
+                  },
+                ),
+              ],
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'ETEA',
+                    style: const TextStyle(
+                      color: Colors.black87,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    '${widget.subject} - ${widget.chapter}',
+                    style: const TextStyle(
+                      color: darkGrey,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
               ),
             ),
-            Text(
-              '${widget.subject} - ${widget.chapter}',
-              style: const TextStyle(
-                color: darkGrey,
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-      ),
-      body: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          padding: EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(bottom: 16.0),
+            body: Form(
+              key: _formKey,
+              child: SingleChildScrollView(
+                padding: EdgeInsets.all(16.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Edit MCQ',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16.0),
+                      child: Text(
+                        'Edit MCQ',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ),
+                    TextFormField(
+                      controller: _questionController,
+                      decoration: InputDecoration(
+                        focusedBorder: UnderlineInputBorder(
+                          borderSide: BorderSide(color: customYellow, width: 3.0),
+                        ),
+                      ),
+                      validator: (value) => value!.isEmpty ? 'MCQ is required' : null,
+                    ),
+                    SizedBox(height: 35),
+                    ..._optionsController.asMap().entries.map((entry) {
+                      int index = entry.key;
+                      var controller = entry.value;
+                      return Padding(
+                        padding: const EdgeInsets.all(1.0),
+                        child: TextFormField(
+                          controller: controller,
+                          decoration: InputDecoration(
+                            labelText: 'Option ${String.fromCharCode(65 + index)}',
+                            labelStyle: TextStyle(
+                              color: index == _correctOption ? customYellow : Colors.black87,
+                              fontWeight: index == _correctOption ? FontWeight.bold : FontWeight.normal,
+                            ),
+                            focusedBorder: UnderlineInputBorder(
+                              borderSide: BorderSide(
+                                color: index == _correctOption ? customYellow : Colors.grey,
+                                width: index == _correctOption ? 3.0 : 2.0,
+                              ),
+                            ),
+                            enabledBorder: UnderlineInputBorder(
+                              borderSide: BorderSide(
+                                color: index == _correctOption ? customYellow : Colors.grey,
+                                width: index == _correctOption ? 3.0 : 2.0,
+                              ),
+                            ),
+                          ),
+                          validator: (value) => value!.isEmpty ? 'Option is required' : null,
+                        ),
+                      );
+                    }).toList(),
+                    SizedBox(height: 35),
+                    Theme(
+                      data: Theme.of(context).copyWith(
+                        canvasColor: customGrey,
+                      ),
+                      child: DropdownButtonFormField<int>(
+                        borderRadius: BorderRadius.circular(10),
+                        value: _correctOption,
+                        items: List.generate(
+                          _optionsController.length,
+                              (index) => DropdownMenuItem<int>(
+                            value: index,
+                            child: Text(
+                              String.fromCharCode(65 + index),
+                              style: TextStyle(
+                                color: index == _correctOption ? customYellow : Colors.black,
+                                fontWeight: index == _correctOption ? FontWeight.bold : FontWeight.normal,
+                              ),
+                            ),
+                          ),
+                        ),
+                        onChanged: (value) {
+                          setState(() {
+                            _correctOption = value!;
+                          });
+                        },
+                        decoration: InputDecoration(
+                          labelText: 'Correct Option',
+                          labelStyle: TextStyle(
+                            color: customYellow,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          focusedBorder: UnderlineInputBorder(
+                            borderSide: BorderSide(color: customYellow, width: 3.0),
+                          ),
+                          enabledBorder: UnderlineInputBorder(
+                            borderSide: BorderSide(color: customYellow, width: 3.0),
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 20),
+                    Center(
+                      child: Card(
+                        elevation: 4,
+                        child: ElevatedButton.icon(
+                          onPressed: () async {
+                            if (_formKey.currentState!.validate()) {
+                              final updatedMCQ = MCQ(
+                                id: widget.mcq.id,
+                                question: _questionController.text,
+                                options: _optionsController.map((c) => c.text).toList(),
+                                correctOption: _correctOption,
+                                year: DateTime.now().year,
+                              );
+
+                              final mcqProvider = Provider.of<MCQProvider>(context, listen: false);
+
+                              try {
+
+                                await mcqProvider.updateMCQ(
+                                  widget.cls,
+                                  widget.subject,
+                                  widget.chapter,
+                                  updatedMCQ,
+                                );
+
+
+                                if (context.canPop()) {
+                                  context.pop();
+                                } else {
+                                  context.go('/chapter_detail/${widget.cls}/${widget.subject}/${widget.chapter}/0');
+                                }
+
+                              } catch (e) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('Error updating MCQ: $e')),
+                                );
+                              }
+                            }
+                          },
+
+
+
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: customYellow,
+                          ),
+                          icon: Icon(Icons.save, color: Colors.black),
+                          label: Text(
+                            'Save Changes',
+                            style: TextStyle(color: Colors.black),
+                          ),
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
-              TextFormField(
-                controller: _questionController,
-                decoration: InputDecoration(
-                  focusedBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: customYellow, width: 3.0),
-                  ),
-                ),
-                validator: (value) => value!.isEmpty ? 'MCQ is required' : null,
-              ),
-              SizedBox(height: 35),
-              ..._optionsController.asMap().entries.map((entry) {
-                int index = entry.key;
-                var controller = entry.value;
-                return Padding(
-                  padding: const EdgeInsets.all(1.0),
-                  child: TextFormField(
-                    controller: controller,
-                    decoration: InputDecoration(
-                      labelText: 'Option ${String.fromCharCode(65 + index)}',
-                      labelStyle: TextStyle(
-                        color: index == _correctOption ? customYellow : Colors.black87,
-                        fontWeight: index == _correctOption ? FontWeight.bold : FontWeight.normal,
-                      ),
-                      focusedBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(
-                          color: index == _correctOption ? customYellow : Colors.grey,
-                          width: index == _correctOption ? 3.0 : 2.0,
-                        ),
-                      ),
-                      enabledBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(
-                          color: index == _correctOption ? customYellow : Colors.grey,
-                          width: index == _correctOption ? 3.0 : 2.0,
-                        ),
-                      ),
-                    ),
-                    validator: (value) => value!.isEmpty ? 'Option is required' : null,
-                  ),
-                );
-              }).toList(),
-              SizedBox(height: 35),
-              Theme(
-                data: Theme.of(context).copyWith(
-                  canvasColor: customGrey,
-                ),
-                child: DropdownButtonFormField<int>(
-                  borderRadius: BorderRadius.circular(10),
-                  value: _correctOption,
-                  items: List.generate(
-                    _optionsController.length,
-                        (index) => DropdownMenuItem<int>(
-                      value: index,
-                      child: Text(
-                        String.fromCharCode(65 + index),
-                        style: TextStyle(
-                          color: index == _correctOption ? customYellow : Colors.black,
-                          fontWeight: index == _correctOption ? FontWeight.bold: FontWeight.normal,
-                        ),
-                      ),
-                    ),
-                  ),
-                  onChanged: (value) {
-                    setState(() {
-                      _correctOption = value!;
-                    });
-                  },
-                  decoration: InputDecoration(
-                    labelText: 'Correct Option',
-                    labelStyle: TextStyle(
-                      color: customYellow,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    focusedBorder: UnderlineInputBorder(
-                      borderSide: BorderSide(color: customYellow, width: 3.0),
-                    ),
-                    enabledBorder: UnderlineInputBorder(
-                      borderSide: BorderSide(color: customYellow, width: 3.0),
-                    ),
-                  ),
-                ),
-              ),
-              SizedBox(height: 20),
-              Center(
-                child: Card(
-                  elevation: 4,
-                  child: ElevatedButton.icon(
-                    onPressed: _saveMCQ,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: customYellow,
-                    ),
-                    icon: Icon(Icons.save, color: Colors.black),
-                    label: Text(
-                      'Save Changes',
-                      style: TextStyle(color: Colors.black),
-                    ),
-                  ),
-                ),
-              ),
-
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }
 }
+

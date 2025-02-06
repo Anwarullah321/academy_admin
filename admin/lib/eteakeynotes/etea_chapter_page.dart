@@ -35,15 +35,15 @@ class _EteaKeyNotesChapterPageState extends State<EteaKeyNotesChapterPage> {
   }
 
   void _navigateToChapterDetail(String chapter) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => KeyNotesChapterDetailPage(
-          selectedSubject: widget.selectedSubject,
-          selectedChapter: chapter,
-        ),
-      ),
-    );
+    // Navigator.push(
+    //   context,
+    //   MaterialPageRoute(
+    //     builder: (context) => KeyNotesChapterDetailPage(
+    //       selectedSubject: widget.selectedSubject,
+    //       selectedChapter: chapter,
+    //     ),
+    //   ),
+    // );
   }
 
   @override

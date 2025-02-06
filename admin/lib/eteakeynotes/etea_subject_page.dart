@@ -43,15 +43,15 @@ class _EteaKeyNotesSubjectPageState extends State<EteaKeyNotesSubjectPage> {
           return ListTile(
             title: Text(_subjects[index]),
             onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => EteaKeyNotesChapterPage(
-                    selectedSubject: _subjects[index],
-
-                  ),
-                ),
-              );
+              // Navigator.push(
+              //   context,
+              //   MaterialPageRoute(
+              //     builder: (context) => EteaKeyNotesChapterPage(
+              //       selectedSubject: _subjects[index],
+              //
+              //     ),
+              //   ),
+              // );
             },
           );
         },

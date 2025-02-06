@@ -2,10 +2,15 @@ import 'package:admin/eteakeynotes/etea_subject_page.dart';
 import 'package:admin/widgets/option_card.dart';
 import 'package:admin/widgets/option_image_card.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../../constants/colors.dart';
 import '../../eteachapterwise_test/etea_subject_page.dart';
 import '../../loginscreen.dart';
 import '../../main.dart';
+import '../../mcq_provider.dart';
+import '../../providers/AuthProvider.dart';
+import 'internaluser_Dashboard.dart';
 
 class EteaManageOptionsDialog extends StatefulWidget {
   @override
@@ -116,19 +121,24 @@ class _EteaManageOptionsDialogState extends State<EteaManageOptionsDialog> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('ETEA Manage'),
+        title: Text('ETEA Manage',
+          style: const TextStyle(
+            color: Colors.black87,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         backgroundColor: customYellow,
         elevation: 0,
         actions: [
           TextButton.icon(
             icon: Icon(Icons.exit_to_app),
             label: Text('Logout'),
-            onPressed: () {
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (context) => LoggedInScreen()),
-                    (Route<dynamic> route) => false,
-              );
+            onPressed: () async {
+
+              Provider.of<AuthManager>(context, listen: false).logout(context);
+
+              context.go('/login');
             },
           ),
         ],
@@ -144,10 +154,11 @@ class _EteaManageOptionsDialogState extends State<EteaManageOptionsDialog> {
                 child: _buildOptionCard(
                   title: 'Key Notes',
                   imagePath: 'assets/images/keynotes.png',
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => EteaKeyNotesSubjectPage()),
-                  ),
+                  onTap: () => (),
+                  // onTap: () => Navigator.push(
+                  //   context,
+                  //   MaterialPageRoute(builder: (context) => EteaKeyNotesSubjectPage()),
+                  // ),
                   cardWidth: cardWidth,
                   cardHeight: cardHeight,
                 ),
@@ -157,10 +168,7 @@ class _EteaManageOptionsDialogState extends State<EteaManageOptionsDialog> {
                 child: _buildOptionCard(
                   title: 'ETEA Chapterwise',
                   imagePath: 'assets/images/etea.png',
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => SelecteateSubjectPage()),
-                  ),
+                  onTap: () => context.go( '/etea/selecteatesubjectpage'),
                   cardWidth: cardWidth,
                   cardHeight: cardHeight,
                 ),
@@ -170,7 +178,7 @@ class _EteaManageOptionsDialogState extends State<EteaManageOptionsDialog> {
                 child: _buildOptionCard(
                   title: 'Online/Video Lectures',
                   imagePath: 'assets/images/videolectures.png',
-                  onTap: () => Navigator.pop(context),
+                  onTap: () => (),
                   cardWidth: cardWidth,
                   cardHeight: cardHeight,
                 ),

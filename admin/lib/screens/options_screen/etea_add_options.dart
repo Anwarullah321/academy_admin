@@ -13,28 +13,28 @@ class EteaAddOptionsDialog extends StatelessWidget {
         children: [
           ElevatedButton(
             onPressed: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => UploadPdfScreen()),
-              );
+              // Navigator.pop(context);
+              // Navigator.push(
+              //   context,
+              //   MaterialPageRoute(builder: (context) => UploadPdfScreen()),
+              // );
             },
             child: Text('ETEA Key Notes'),
           ),
           ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => AddETEAMCQPage()),
-              );
+             onPressed: () {
+            //   Navigator.pop(context);
+            //   Navigator.push(
+            //     context,
+            //     MaterialPageRoute(builder: (context) => AddETEAMCQPage()),
+            //   );
             },
             child: Text('ETEA Chapterwise MCQS'),
           ),
 
           ElevatedButton(
             onPressed: () {
-              Navigator.pop(context);
+             // Navigator.pop(context);
             },
             child: Text('Online/Video Lectures'),
           ),

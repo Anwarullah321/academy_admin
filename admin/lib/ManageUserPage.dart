@@ -1,10 +1,14 @@
 import 'package:admin/constants/colors.dart';
+import 'package:admin/providers/AuthProvider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
 import 'loginscreen.dart';
 import 'main.dart';
+import 'mcq_provider.dart';
 
 class ManageUsersPage extends StatefulWidget {
   @override
@@ -41,7 +45,7 @@ class _ManageUsersPageState extends State<ManageUsersPage> {
 
       userMap.forEach((key, value) {
         if (value is Map<dynamic, dynamic>) {
-          // Add the key (uid) to the value map
+
           value['uid'] = key;
           fetchedUsers.add(User.fromJson(value));
         }
@@ -149,7 +153,12 @@ class _ManageUsersPageState extends State<ManageUsersPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return WillPopScope(
+        onWillPop: () async {
+      print("[DEBUG] Back button press blocked on Manage Users Page.");
+      return false;
+    },
+    child: Scaffold(
       appBar: AppBar(
         title: Text('Manage Users'),
         backgroundColor: customYellow,
@@ -157,12 +166,11 @@ class _ManageUsersPageState extends State<ManageUsersPage> {
           TextButton.icon(
             icon: Icon(Icons.exit_to_app),
             label: Text('Logout'),
-            onPressed: () {
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (context) => LoggedInScreen()),
-                    (Route<dynamic> route) => false,
-              );
+            onPressed: () async {
+
+              Provider.of<AuthManager>(context, listen: false).logout(context);
+
+              context.go('/login');
             },
           ),
         ],
@@ -262,7 +270,7 @@ class _ManageUsersPageState extends State<ManageUsersPage> {
           ),
         ],
       ),
-    );
+    ));
   }
 }
 class User {
@@ -280,10 +288,10 @@ class User {
 
   factory User.fromJson(Map<dynamic, dynamic> json) {
     return User(
-      uid: json['uid'] ?? '', // Provide a default empty string if null
+      uid: json['uid'] ?? '',
       username: json['username'] ?? '',
       password: json['password'] ?? '',
-      userType: json['userType'] ?? 'internal_user', // Default to 'internal_user' if null
+      userType: json['userType'] ?? 'internal_user',
     );
   }
 }

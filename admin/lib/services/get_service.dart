@@ -147,6 +147,54 @@ class GetService {
     return [];
   }
 
+  Future<MCQ?> getMCQById(String className, String subject, String chapter, String mcqId) async {
+    try {
+
+      final ref = _database.child(
+          'classes/$className/subjects/$subject/chapters/$chapter/chapterwise_mcqs/$mcqId');
+
+      print('Fetching MCQ from path: ${ref.path}');
+
+      final snapshot = await ref.get();
+
+      if (snapshot.exists && snapshot.value is Map) {
+        final mcqData = Map<String, dynamic>.from(snapshot.value as Map);
+
+        print('Fetched MCQ: $mcqData');
+
+        return MCQ.fromMap(mcqData);
+      } else {
+        print('MCQ not found with ID: $mcqId');
+      }
+    } catch (e) {
+      print('Error fetching MCQ by ID: $e');
+    }
+    return null;
+  }
+
+
+  Future<Question?> getQuestionById(String className, String subject, String chapter, String questionId) async {
+    try {
+      final ref = _database.child(
+          'classes/$className/subjects/$subject/chapters/$chapter/chapterwise_questions/$questionId');
+
+      print('Fetching Question from path: ${ref.path}');
+
+      final snapshot = await ref.get();
+
+      if (snapshot.exists && snapshot.value is Map) {
+        final questionData = Map<String, dynamic>.from(snapshot.value as Map);
+        print('Fetched Question: $questionData');
+
+        return Question.fromMap(questionData);
+      } else {
+        print('Question not found with ID: $questionId');
+      }
+    } catch (e) {
+      print('Error fetching Question by ID: $e');
+    }
+    return null;
+  }
 
 
   Future<List<MCQ>> getChapterwiseMCQs(String className, String subject, String chapter) async {
@@ -200,14 +248,14 @@ class GetService {
     return [];
   }
 
-// Helper method to parse and validate year
+
   int _parseYear(dynamic yearValue) {
-    // If it's already an int and valid, return it
+
     if (yearValue is int && yearValue > 0) {
       return yearValue;
     }
 
-    // If it's a string, try parsing
+
     if (yearValue is String) {
       final parsedYear = int.tryParse(yearValue);
       if (parsedYear != null && parsedYear > 0) {
@@ -215,9 +263,33 @@ class GetService {
       }
     }
 
-    // Default to current year if no valid year is found
+
     return DateTime.now().year;
   }
+
+  Future<MCQ?> getEteaMCQById(String subject, String chapter, String mcqId) async {
+    try {
+      final ref = _database.child(
+          'etea_subjects/$subject/etea_chapters/$chapter/etea_mcqs/$mcqId');
+
+      print('Fetching ETEA MCQ from path: ${ref.path}');
+
+      final snapshot = await ref.get();
+
+      if (snapshot.exists && snapshot.value is Map) {
+        final mcqData = Map<String, dynamic>.from(snapshot.value as Map);
+        print('Fetched ETEA MCQ: $mcqData');
+
+        return MCQ.fromMap(mcqData);
+      } else {
+        print('ETEA MCQ not found with ID: $mcqId');
+      }
+    } catch (e) {
+      print('Error fetching ETEA MCQ by ID: $e');
+    }
+    return null;
+  }
+
 
   Future<List<MCQ>> getEteaChapterwiseMCQs(String subject, String chapter) async {
     final snapshot = await _database

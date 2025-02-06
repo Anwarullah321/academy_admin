@@ -1,7 +1,11 @@
+import 'package:admin/mcq_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../../constants/colors.dart';
 import '../../loginscreen.dart';
 import '../../main.dart';
+import '../../providers/AuthProvider.dart';
 import '../../services/yamluploadservicewithcompletedata.dart';
 
 class TextToYamlUploadScreen extends StatefulWidget {
@@ -175,19 +179,24 @@ class _TextToYamlUploadScreenState extends State<TextToYamlUploadScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Upload MCQs'),
+        title: Text('Upload MCQs',
+          style: const TextStyle(
+            color: Colors.black87,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         backgroundColor: customYellow,
         elevation: 0,
         actions: [
           TextButton.icon(
             icon: Icon(Icons.exit_to_app),
             label: Text('Logout'),
-            onPressed: () {
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (context) => LoggedInScreen()),
-                    (Route<dynamic> route) => false,
-              );
+            onPressed: () async {
+
+              Provider.of<AuthManager>(context, listen: false).logout(context);
+
+              context.go('/login');
             },
           ),
         ],

@@ -1,8 +1,12 @@
 import 'package:admin/screens/view_screens/view_mcqs.dart';
 import 'package:admin/screens/view_screens/view_question.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../constants/colors.dart';
 import '../loginscreen.dart';
+import '../mcq_provider.dart';
+import '../providers/AuthProvider.dart';
 
 class ChapterDetailPage extends StatefulWidget {
   final String selectedClass;
@@ -41,12 +45,11 @@ class _ChapterDetailPageState extends State<ChapterDetailPage> {
           TextButton.icon(
             icon: Icon(Icons.exit_to_app),
             label: Text('Logout'),
-            onPressed: () {
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (context) => LoggedInScreen()),
-                    (Route<dynamic> route) => false,
-              );
+            onPressed: () async {
+
+              Provider.of<AuthManager>(context, listen: false).logout(context);
+
+              context.go('/login');
             },
           ),
         ],

@@ -86,12 +86,12 @@ class _DisplayPdfScreenState extends State<DisplayPdfScreen> {
   }
 
   void _openPdf(BuildContext context, String url) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => PlatformPdfViewer(pdfUrl: url),
-      ),
-    );
+    // Navigator.push(
+    //   context,
+    //   MaterialPageRoute(
+    //     builder: (context) => PlatformPdfViewer(pdfUrl: url),
+    //   ),
+    // );
   }
 
   @override

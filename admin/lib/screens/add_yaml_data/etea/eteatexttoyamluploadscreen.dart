@@ -1,7 +1,11 @@
 import 'package:admin/main.dart';
+import 'package:admin/mcq_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../../../constants/colors.dart';
 import '../../../loginscreen.dart';
+import '../../../providers/AuthProvider.dart';
 import '../../../services/eteayamluploadservice.dart';
 
 class EteaTextToYamlUploadScreen extends StatefulWidget {
@@ -35,7 +39,7 @@ class _EteaTextToYamlUploadScreenState extends State<EteaTextToYamlUploadScreen>
     });
 
     try {
-      // Split text into sections by ETEA header
+
       List<String> sections = [];
       String currentSection = "";
 
@@ -52,12 +56,12 @@ class _EteaTextToYamlUploadScreenState extends State<EteaTextToYamlUploadScreen>
         }
       }
 
-      // Add the last section
+
       if (currentSection.isNotEmpty) {
         sections.add(currentSection.trim());
       }
 
-      // Upload each section
+
       for (String section in sections) {
         await _yamlUploadService.processTextData(section);
       }
@@ -67,7 +71,7 @@ class _EteaTextToYamlUploadScreenState extends State<EteaTextToYamlUploadScreen>
         SnackBar(content: Text('Data uploaded successfully')),
       );
     } catch (e) {
-      print('Upload error: $e'); // Add debug logging
+      print('Upload error: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error uploading data: $e')),
       );
@@ -93,62 +97,59 @@ class _EteaTextToYamlUploadScreenState extends State<EteaTextToYamlUploadScreen>
     for (int i = 0; i < lines.length; i++) {
       String line = lines[i];
 
-      // Check for header
+
       if (headerPattern.hasMatch(line)) {
         foundHeader = true;
         continue;
       }
 
-      // Must have a header before any questions
+
       if (!foundHeader) return false;
 
-      // Check question format - must start exactly with "Q:"
+
       if (line.startsWith('Q:')) {
-        // Check if Q: is not followed by a space
+
         if (line == 'Q:' || !line.substring(2).startsWith(' ')) {
-          return false; // Invalid question format
+          return false;
         }
 
         questionCount++;
         int optionCount = 0;
         bool foundAnswer = false;
 
-        // Look for options and answer
+
         while (++i < lines.length) {
           String currentLine = lines[i];
 
-          // Break if we hit another question or header
+
           if (currentLine.startsWith('Q:') || headerPattern.hasMatch(currentLine)) {
-            i--; // Step back one line
+            i--;
             break;
           }
 
-          // Validate options format
+
           if (RegExp(r'^[A-E]:').hasMatch(currentLine)) {
-            // Check if option letter is followed by a space
             String optionLetter = currentLine[0];
             if (currentLine == '$optionLetter:' || !currentLine.substring(2).startsWith(' ')) {
-              return false; // Invalid option format
+              return false;
             }
             optionCount++;
           } else if (currentLine.startsWith('Ans:')) {
-            // Check if Ans: is followed by a space and valid option letter
             if (!RegExp(r'^Ans:\s*[A-E]$').hasMatch(currentLine)) {
-              return false; // Invalid answer format
+              return false;
             }
             foundAnswer = true;
             break;
           } else {
-            return false; // Invalid line format
+            return false;
           }
         }
 
-        // Validate question structure
         if (optionCount < 4 || optionCount > 5 || !foundAnswer) {
           return false;
         }
       } else {
-        return false; // Invalid line - not a header or question
+        return false;
       }
     }
 
@@ -199,19 +200,24 @@ class _EteaTextToYamlUploadScreenState extends State<EteaTextToYamlUploadScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Upload ETEA MCQs'),
+        title: Text('Upload ETEA MCQs',
+          style: const TextStyle(
+            color: Colors.black87,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         backgroundColor: customYellow,
         elevation: 0,
         actions: [
           TextButton.icon(
             icon: Icon(Icons.exit_to_app),
             label: Text('Logout'),
-            onPressed: () {
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (context) => LoggedInScreen()),
-                    (Route<dynamic> route) => false,
-              );
+            onPressed: () async {
+
+              Provider.of<AuthManager>(context, listen: false).logout(context);
+
+              context.go('/login');
             },
           ),
         ],

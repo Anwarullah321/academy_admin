@@ -184,12 +184,7 @@ class _UploadPastPaperPdfScreenState extends State<UploadPastPaperPdfScreen> {
             icon: Icon(Icons.exit_to_app),
             label: Text('Logout'),
             onPressed: () {
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => LoggedInScreen(),
-                ),
-              );
+
             },
           ),
         ],
